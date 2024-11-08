@@ -29,7 +29,7 @@ export default defineComponent({
             {
                 title: "Афет",
                 dedication: "Посвящается...",
-                sections: [], // Заполните позже или оставьте пустым
+                sections: [],
                 available: true
             },
             {
@@ -74,22 +74,6 @@ export default defineComponent({
     transform: translate(-50%, -50%);
     display: inline-block;
     z-index: 1000;
-    /* Ensure it's above other elements */
-}
-
-.books-button button {
-    background-color: #444;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    padding: 12px 24px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-.books-button button:hover {
-    background-color: #555;
 }
 
 .books-list {
@@ -97,7 +81,6 @@ export default defineComponent({
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    background-color: white;
     border: 1px solid #ccc;
     list-style: none;
     padding: 10px;
@@ -110,22 +93,5 @@ export default defineComponent({
 
 .books-list li {
     margin: 5px 0;
-}
-
-.books-list li a {
-    text-decoration: none;
-    color: #333;
-    display: block;
-    opacity: 1;
-    transition: opacity 0.3s;
-}
-
-.books-list li a.unavailable {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.books-list li a:hover:not(.unavailable) {
-    text-decoration: underline;
 }
 </style>

@@ -31,7 +31,6 @@ export default defineComponent({
         const handleClick = (event: Event) => {
             if (!props.book.available) {
                 event.preventDefault()
-                // Опционально: показать уведомление о недоступности книги
                 alert('Данная книга пока недоступна.')
             }
         }
@@ -50,10 +49,11 @@ export default defineComponent({
 
 .book-item a {
     text-decoration: none;
-    color: #333;
+    color: inherit;
+    /* Используем цвет, определённый в main.css */
     display: block;
     opacity: 1;
-    transition: opacity 0.3s;
+    transition: color 0.3s, opacity 0.3s;
 }
 
 .book-item a.unavailable {
