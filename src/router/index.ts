@@ -1,7 +1,7 @@
 // src/router/index.ts
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
-import HomeView from '@/views/HomeView.vue'
-import BookView from '@/views/BookView.vue'
+const HomeView = () => import('@/views/HomeView.vue')
+const BookView = () => import('@/views/BookView.vue')
 
 const routes: Array<RouteRecordRaw> = [
     {
