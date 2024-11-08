@@ -15,28 +15,49 @@ import p5 from 'p5'
 const p5Container = ref<HTMLDivElement | null>(null)
 let sketch: p5
 
-// Массив букв для отображения
-const letters = "ИЛЬЯ ЗДНАНЕВИЧ".split("")
+// Массив букв для отображения на двух строках
+const letters = ["ИЛЬЯ", "ЗДНАНЕВИЧ"].map(line => line.split(""))
 
-// Массивы для хранения позиций букв
-let positions: { x: number; y: number; opacity: number }[] = []
-let basePositions: { x: number; y: number }[] = []
+/**
+ * Интерфейс для хранения данных о каждой букве без прозрачности
+ */
+interface Letter {
+    char: string
+    currentX: number
+    currentY: number
+    targetX: number
+    targetY: number
+}
+
+// Массив для хранения данных букв
+let lettersData: Letter[] = []
 
 // Параметры анимации
-const maxDist = 100
-const chaosFactorX = 1080
-const chaosFactorY = 400
-const lerpSpeed = 0.05
+const lerpSpeed = 0.025
 
 // Позиции курсора мыши
 let mouseXPos = window.innerWidth / 2
 let mouseYPos = window.innerHeight / 2
+
+// Состояние анимации
+enum AnimationState {
+    INITIAL = 'INITIAL',
+    CHAOS = 'CHAOS'
+}
+
+let state: AnimationState = AnimationState.INITIAL
 
 // Обработчик движения мыши
 const handleMouseMove = (event: MouseEvent) => {
     mouseXPos = event.clientX
     mouseYPos = event.clientY
 }
+
+// Константы для отступов и промежутков
+const marginX = -50
+const marginY = -150
+const lineSpacing = 200 // Увеличен отступ между строками
+const spaceBetweenLetters = 10 // Минимальное расстояние между буквами
 
 onMounted(() => {
     // Добавляем слушатель события движения мыши
@@ -46,29 +67,44 @@ onMounted(() => {
     const s = (p: p5) => {
         p.setup = () => {
             p.createCanvas(p.windowWidth, p.windowHeight)
-            p.textFont('Helvetica')
-            p.textSize(164)
-            p.textAlign(p.CENTER, p.CENTER)
+            p.textFont("Helvetica")
+            p.textSize(240) // Увеличен размер шрифта
+            p.textAlign(p.LEFT, p.TOP) // Выравнивание по левому верхнему углу
 
-            const totalWidth = p.textWidth(letters.join(""))
-            let startX = (p.width - totalWidth) / 2
-            const centerY = p.height / 2
+            let currentY = marginY
 
-            // Инициализируем позиции букв
-            for (let i = 0; i < letters.length; i++) {
-                const letterWidth = p.textWidth(letters[i])
-                const pos = { x: startX + letterWidth / 2, y: centerY }
-                positions.push({ ...pos, opacity: p.random() > 0.5 ? 0.5 : 1 })
-                basePositions.push(pos)
-                startX += letterWidth
-            }
+            // Очистка lettersData перед инициализацией
+            lettersData = []
+
+            letters.forEach(line => { // каждая строка - массив символов
+                let currentX = marginX
+
+                line.forEach(char => {
+                    const letterWidth = p.textWidth(char)
+                    const letterHeight = p.textAscent() + p.textDescent()
+                    const pos = {
+                        x: currentX + letterWidth / 2,
+                        y: currentY + letterHeight / 2,
+                    }
+                    lettersData.push({
+                        char,
+                        currentX: pos.x,
+                        currentY: pos.y,
+                        targetX: pos.x,
+                        targetY: pos.y,
+                    })
+                    currentX += letterWidth + spaceBetweenLetters
+                })
+
+                currentY += lineSpacing // переход на следующую строку
+            })
         }
 
         p.draw = () => {
             // Считываем текущие CSS-переменные для фона и текста
             const computedStyle = getComputedStyle(document.documentElement)
-            const bgHex = computedStyle.getPropertyValue('--background-color').trim()
-            const textHex = computedStyle.getPropertyValue('--text-color').trim()
+            const bgHex = computedStyle.getPropertyValue('--background-color').trim() || '#FFFFFF'
+            const textHex = computedStyle.getPropertyValue('--text-color').trim() || '#000000'
 
             // Функция для конвертации HEX в RGB
             const hexToRgb = (hex: string): [number, number, number] => {
@@ -90,56 +126,97 @@ onMounted(() => {
             // Устанавливаем фон канваса
             p.background(...bgColor)
 
-            // Обрабатываем каждую букву
-            for (let i = 0; i < letters.length; i++) {
-                let pos = positions[i]
-                let basePos = basePositions[i]
-
-                const distToCursor = p.dist(mouseXPos, mouseYPos, p.width / 2, p.height / 2)
-                let offsetX = p.map(distToCursor, 0, maxDist, 0, chaosFactorX)
-                let offsetY = p.map(distToCursor, 0, maxDist, 0, chaosFactorY)
-
-                offsetX = p.constrain(offsetX, 0, chaosFactorX)
-                offsetY = p.constrain(offsetY, 0, chaosFactorY)
-
-                if (distToCursor < 150) {
-                    pos.x = p.lerp(pos.x, basePos.x, lerpSpeed)
-                    pos.y = p.lerp(pos.y, basePos.y, lerpSpeed)
+            // Определяем текущее состояние на основе позиции курсора
+            const newState = mouseXPos >= p.width / 2 ? AnimationState.CHAOS : AnimationState.INITIAL
+            if (newState !== state) {
+                state = newState
+                if (state === AnimationState.CHAOS) {
+                    setChaosPositions(p)
                 } else {
-                    const angle = p.map(i, 0, letters.length, 0, p.TWO_PI)
-                    const smoothOffsetX = p.sin(angle) * offsetX
-                    const smoothOffsetY = p.cos(angle) * offsetY
-
-                    pos.x = p.lerp(pos.x, basePos.x + smoothOffsetX, lerpSpeed)
-                    pos.y = p.lerp(pos.y, basePos.y + smoothOffsetY, lerpSpeed)
+                    setInitialPositions(p)
                 }
-
-                pos.x = p.constrain(pos.x, 0, p.width)
-                pos.y = p.constrain(pos.y, 0, p.height)
-
-                p.push()
-                p.fill(...textColor, 255 * pos.opacity)
-                p.text(letters[i], pos.x, pos.y)
-                p.pop()
             }
+
+            // Обрабатываем каждую букву
+            lettersData.forEach(letter => {
+                // Плавное движение к целевой позиции
+                letter.currentX = p.lerp(letter.currentX, letter.targetX, lerpSpeed)
+                letter.currentY = p.lerp(letter.currentY, letter.targetY, lerpSpeed)
+
+                // Устанавливаем цвет текста без прозрачности
+                p.fill(...textColor)
+                p.text(letter.char, letter.currentX, letter.currentY)
+            })
         }
 
         p.windowResized = () => {
             p.resizeCanvas(p.windowWidth, p.windowHeight)
-            basePositions = []
-            positions = []
+            // Пересчитываем позиции букв при изменении размера окна
+            lettersData = []
 
-            const totalWidth = p.textWidth(letters.join(""))
-            let startX = (p.width - totalWidth) / 2
-            const centerY = p.height / 2
+            let currentY = marginY
 
-            for (let i = 0; i < letters.length; i++) {
-                const letterWidth = p.textWidth(letters[i])
-                const pos = { x: startX + letterWidth / 2, y: centerY }
-                basePositions.push(pos)
-                positions[i] = { ...pos, opacity: p.random() > 0.5 ? 0.5 : 1 }
-                startX += letterWidth
+            letters.forEach(line => { // итерация по строкам
+                let currentX = marginX
+
+                line.forEach(char => { // итерация по символам
+                    const letterWidth = p.textWidth(char)
+                    const letterHeight = p.textAscent() + p.textDescent()
+                    const pos = {
+                        x: currentX + letterWidth / 2,
+                        y: currentY + letterHeight / 2
+                    }
+                    lettersData.push({
+                        char,
+                        currentX: pos.x,
+                        currentY: pos.y,
+                        targetX: pos.x,
+                        targetY: pos.y
+                    })
+                    currentX += letterWidth + spaceBetweenLetters
+                })
+
+                currentY += lineSpacing
+            })
+
+            // Если состояние CHAOS, установить хаотичные позиции
+            if (state === AnimationState.CHAOS) {
+                setChaosPositions(p)
             }
+        }
+
+        /**
+         * Функция установки начальных позиций для букв
+         */
+        const setInitialPositions = (p: p5) => {
+            let currentY = marginY
+            let letterIndex = 0
+
+            letters.forEach(line => {
+                let currentX = marginX
+
+                line.forEach(char => {
+                    const letter = lettersData[letterIndex]
+                    const letterWidth = p.textWidth(char)
+                    const letterHeight = p.textAscent() + p.textDescent()
+                    letter.targetX = currentX + letterWidth / 2
+                    letter.targetY = currentY + letterHeight / 2
+                    currentX += letterWidth + spaceBetweenLetters
+                    letterIndex++
+                })
+
+                currentY += lineSpacing
+            })
+        }
+
+        /**
+         * Функция установки хаотичных позиций для букв
+         */
+        const setChaosPositions = (p: p5) => {
+            lettersData.forEach(letter => {
+                letter.targetX = p.random(p.width)
+                letter.targetY = p.random(p.height)
+            })
         }
     }
 
@@ -166,12 +243,5 @@ canvas {
     display: block;
     width: 100%;
     height: 100%;
-}
-
-/* Временный дополнительный контент для тестирования прокрутки */
-.extra-content {
-    padding: 20px;
-    background-color: rgba(255, 255, 255, 0.1);
-    color: white;
 }
 </style>

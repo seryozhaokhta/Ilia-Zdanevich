@@ -11,7 +11,6 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue'
-// Удалено: import { useRouter } from 'vue-router'
 
 interface Book {
     title: string
@@ -66,5 +65,3 @@ export default defineComponent({
     text-decoration: underline;
 }
 </style>
-
-
