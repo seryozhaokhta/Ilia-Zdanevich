@@ -40,7 +40,8 @@ import TableOfContents from '@/components/TableOfContents.vue'
 import brigadnyData from '@/data/brigadny.json'
 import afetData from '@/data/afet.json'
 import rahelData from '@/data/rahel.json'
-// Импортируйте остальные JSON-файлы по необходимости
+import prigovorData from '@/data/prigovor-bezmolvnny.json'
+import boustrophedonData from '@/data/boustrophedon-au-miroir.json'
 
 interface Stanza {
     number: number
@@ -89,6 +90,12 @@ export default defineComponent({
                     break
                 case "Rahel":
                     book.value = { ...rahelData, available: true } as Book
+                    break
+                case "Приговор безмолвный": // Добавлено
+                    book.value = { ...prigovorData, available: true } as Book
+                    break
+                case "Boustrophédon au miroir": // Добавлено
+                    book.value = { ...boustrophedonData, available: true } as Book
                     break
                 // Добавьте остальные кейсы для других книг
                 default:
