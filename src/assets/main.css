@@ -22,12 +22,19 @@
   --footer-text-color: #ffffff;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box; /* Убедимся, что box-sizing установлен */
+}
+
 body {
   margin: 0;
   font-family: "Helvetica", sans-serif;
   background-color: var(--background-color);
   color: var(--text-color);
   transition: background-color 0.3s, color 0.3s;
+  scroll-behavior: smooth; /* Плавная прокрутка */
 }
 
 /* Стили для кнопок */
@@ -88,4 +95,15 @@ button:hover {
 
 .books-list li a:hover:not(.unavailable) {
   text-decoration: underline;
+}
+
+/* Избежание выступа оглавления за пределы экрана */
+.toc {
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .toc {
+    width: 80%;
+  }
 }
