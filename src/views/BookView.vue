@@ -14,7 +14,10 @@
                 <div v-for="section in book.sections" :key="section.name" class="section">
                     <h3>{{ section.name }}</h3>
                     <p v-if="section.date"><small>{{ section.date }}</small></p>
-                    <div v-for="stanza in section.stanzas" :key="stanza.text" class="stanza">
+                    <div v-for="stanza in section.stanzas" :key="stanza.number" class="stanza"
+                        :id="`stanza-${stanza.number}`">
+                        <!-- Проверяем, если книга не "Я бывший человек", тогда показываем заголовок h4 -->
+                        <h4 v-if="book.title !== 'Я бывший человек меня к чему…'">Стих {{ stanza.number }}</h4>
                         <p class="stanza-text">{{ stanza.text }}</p>
                     </div>
                 </div>
