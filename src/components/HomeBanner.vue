@@ -15,12 +15,11 @@ import p5 from 'p5'
 const p5Container = ref<HTMLDivElement | null>(null)
 let sketch: p5
 
-// Массив букв для отображения на двух строках
-const letters = ["ИЛЬЯ", "ЗДНАНЕВИЧ"].map(line => line.split(""))
+// Массив букв для двух слов
+const filledLetters = ["ИЛЬЯ", "ЗДАНАНЕВИЧ"].map(line => line.split(""))
+const outlinedLetters = ["ИЛЬЯЗД"].map(line => line.split(""))
 
-/**
- * Интерфейс для хранения данных о каждой букве без прозрачности
- */
+// Интерфейсы для хранения данных о каждой букве
 interface Letter {
     char: string
     currentX: number
@@ -29,8 +28,9 @@ interface Letter {
     targetY: number
 }
 
-// Массив для хранения данных букв
-let lettersData: Letter[] = []
+// Массивы для хранения данных букв
+let filledLettersData: Letter[] = []
+let outlinedLettersData: Letter[] = []
 
 // Параметры анимации
 const lerpSpeed = 0.025
@@ -73,10 +73,9 @@ onMounted(() => {
 
             let currentY = marginY
 
-            // Очистка lettersData перед инициализацией
-            lettersData = []
-
-            letters.forEach(line => { // каждая строка - массив символов
+            // Инициализация данных для filledLetters
+            filledLettersData = []
+            filledLetters.forEach(line => { // каждая строка - массив символов
                 let currentX = marginX
 
                 line.forEach(char => {
@@ -86,7 +85,7 @@ onMounted(() => {
                         x: currentX + letterWidth / 2,
                         y: currentY + letterHeight / 2,
                     }
-                    lettersData.push({
+                    filledLettersData.push({
                         char,
                         currentX: pos.x,
                         currentY: pos.y,
@@ -97,6 +96,33 @@ onMounted(() => {
                 })
 
                 currentY += lineSpacing // переход на следующую строку
+            })
+
+            // Инициализация данных для outlinedLetters
+            outlinedLettersData = []
+            currentY += 50 // Добавим небольшой отступ между словами
+
+            outlinedLetters.forEach(line => {
+                let currentX = marginX
+
+                line.forEach(char => {
+                    const letterWidth = p.textWidth(char)
+                    const letterHeight = p.textAscent() + p.textDescent()
+                    const pos = {
+                        x: currentX + letterWidth / 2,
+                        y: currentY + letterHeight / 2,
+                    }
+                    outlinedLettersData.push({
+                        char,
+                        currentX: pos.x,
+                        currentY: pos.y,
+                        targetX: pos.x,
+                        targetY: pos.y,
+                    })
+                    currentX += letterWidth + spaceBetweenLetters
+                })
+
+                currentY += lineSpacing
             })
         }
 
@@ -131,20 +157,36 @@ onMounted(() => {
             if (newState !== state) {
                 state = newState
                 if (state === AnimationState.CHAOS) {
-                    setChaosPositions(p)
+                    setChaosPositions(p, filledLettersData)
+                    setInitialPositions(p, outlinedLettersData)
                 } else {
-                    setInitialPositions(p)
+                    setInitialPositions(p, filledLettersData)
+                    setChaosPositions(p, outlinedLettersData)
                 }
             }
 
-            // Обрабатываем каждую букву
-            lettersData.forEach(letter => {
+            // Обрабатываем каждую букву в filledLetters
+            filledLettersData.forEach(letter => {
                 // Плавное движение к целевой позиции
                 letter.currentX = p.lerp(letter.currentX, letter.targetX, lerpSpeed)
                 letter.currentY = p.lerp(letter.currentY, letter.targetY, lerpSpeed)
 
                 // Устанавливаем цвет текста без прозрачности
                 p.fill(...textColor)
+                p.noStroke()
+                p.text(letter.char, letter.currentX, letter.currentY)
+            })
+
+            // Обрабатываем каждую букву в outlinedLetters
+            outlinedLettersData.forEach(letter => {
+                // Плавное движение к целевой позиции
+                letter.currentX = p.lerp(letter.currentX, letter.targetX, lerpSpeed)
+                letter.currentY = p.lerp(letter.currentY, letter.targetY, lerpSpeed)
+
+                // Устанавливаем контур текста
+                p.noFill()
+                p.stroke(...textColor)
+                p.strokeWeight(2)
                 p.text(letter.char, letter.currentX, letter.currentY)
             })
         }
@@ -152,51 +194,23 @@ onMounted(() => {
         p.windowResized = () => {
             p.resizeCanvas(p.windowWidth, p.windowHeight)
             // Пересчитываем позиции букв при изменении размера окна
-            lettersData = []
-
-            let currentY = marginY
-
-            letters.forEach(line => { // итерация по строкам
-                let currentX = marginX
-
-                line.forEach(char => { // итерация по символам
-                    const letterWidth = p.textWidth(char)
-                    const letterHeight = p.textAscent() + p.textDescent()
-                    const pos = {
-                        x: currentX + letterWidth / 2,
-                        y: currentY + letterHeight / 2
-                    }
-                    lettersData.push({
-                        char,
-                        currentX: pos.x,
-                        currentY: pos.y,
-                        targetX: pos.x,
-                        targetY: pos.y
-                    })
-                    currentX += letterWidth + spaceBetweenLetters
-                })
-
-                currentY += lineSpacing
-            })
-
-            // Если состояние CHAOS, установить хаотичные позиции
-            if (state === AnimationState.CHAOS) {
-                setChaosPositions(p)
-            }
+            initializeLetters(p)
         }
 
         /**
          * Функция установки начальных позиций для букв
          */
-        const setInitialPositions = (p: p5) => {
+        const setInitialPositions = (p: p5, lettersDataArray: Letter[]) => {
             let currentY = marginY
             let letterIndex = 0
 
-            letters.forEach(line => {
+            const lettersArray = lettersDataArray === filledLettersData ? filledLetters : outlinedLetters
+
+            lettersArray.forEach(line => {
                 let currentX = marginX
 
                 line.forEach(char => {
-                    const letter = lettersData[letterIndex]
+                    const letter = lettersDataArray[letterIndex]
                     const letterWidth = p.textWidth(char)
                     const letterHeight = p.textAscent() + p.textDescent()
                     letter.targetX = currentX + letterWidth / 2
@@ -212,11 +226,79 @@ onMounted(() => {
         /**
          * Функция установки хаотичных позиций для букв
          */
-        const setChaosPositions = (p: p5) => {
-            lettersData.forEach(letter => {
+        const setChaosPositions = (p: p5, lettersDataArray: Letter[]) => {
+            lettersDataArray.forEach(letter => {
                 letter.targetX = p.random(p.width)
                 letter.targetY = p.random(p.height)
             })
+        }
+
+        /**
+         * Функция инициализации позиций букв (используется при ресайзе)
+         */
+        const initializeLetters = (p: p5) => {
+            // Очистка данных
+            filledLettersData = []
+            outlinedLettersData = []
+
+            let currentY = marginY
+
+            // Инициализация для filledLetters
+            filledLetters.forEach(line => {
+                let currentX = marginX
+
+                line.forEach(char => {
+                    const letterWidth = p.textWidth(char)
+                    const letterHeight = p.textAscent() + p.textDescent()
+                    const pos = {
+                        x: currentX + letterWidth / 2,
+                        y: currentY + letterHeight / 2,
+                    }
+                    filledLettersData.push({
+                        char,
+                        currentX: pos.x,
+                        currentY: pos.y,
+                        targetX: pos.x,
+                        targetY: pos.y,
+                    })
+                    currentX += letterWidth + spaceBetweenLetters
+                })
+
+                currentY += lineSpacing
+            })
+
+            // Инициализация для outlinedLetters
+            outlinedLetters.forEach(line => {
+                let currentX = marginX
+
+                line.forEach(char => {
+                    const letterWidth = p.textWidth(char)
+                    const letterHeight = p.textAscent() + p.textDescent()
+                    const pos = {
+                        x: currentX + letterWidth / 2,
+                        y: currentY + letterHeight / 2,
+                    }
+                    outlinedLettersData.push({
+                        char,
+                        currentX: pos.x,
+                        currentY: pos.y,
+                        targetX: pos.x,
+                        targetY: pos.y,
+                    })
+                    currentX += letterWidth + spaceBetweenLetters
+                })
+
+                currentY += lineSpacing
+            })
+
+            // Устанавливаем начальные или хаотичные позиции в зависимости от состояния
+            if (state === AnimationState.CHAOS) {
+                setChaosPositions(p, filledLettersData)
+                setInitialPositions(p, outlinedLettersData)
+            } else {
+                setInitialPositions(p, filledLettersData)
+                setChaosPositions(p, outlinedLettersData)
+            }
         }
     }
 
