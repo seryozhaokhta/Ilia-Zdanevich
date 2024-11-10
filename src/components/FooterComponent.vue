@@ -2,7 +2,7 @@
 
 <template>
     <footer class="footer">
-        <p>&copy; 2024 Илья Зданевич. Все права защищены.</p>
+        <p>&copy;</p>
     </footer>
 </template>
 
