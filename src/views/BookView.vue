@@ -14,9 +14,7 @@
                 <div v-for="section in book.sections" :key="section.name" class="section">
                     <h3>{{ section.name }}</h3>
                     <p v-if="section.date"><small>{{ section.date }}</small></p>
-                    <div v-for="stanza in section.stanzas" :key="stanza.number" class="stanza"
-                        :id="`stanza-${stanza.number}`">
-                        <h4>Стих {{ stanza.number }}</h4>
+                    <div v-for="stanza in section.stanzas" :key="stanza.text" class="stanza">
                         <p class="stanza-text">{{ stanza.text }}</p>
                     </div>
                 </div>
@@ -42,6 +40,7 @@ import afetData from '@/data/afet.json'
 import rahelData from '@/data/rahel.json'
 import prigovorData from '@/data/prigovor-bezmolvnny.json'
 import boustrophedonData from '@/data/boustrophedon-au-miroir.json'
+import byvshiyChelovekData from '@/data/byvshiy-chelovek.json'
 
 interface Stanza {
     number: number
@@ -97,7 +96,9 @@ export default defineComponent({
                 case "Boustrophédon au miroir": // Добавлено
                     book.value = { ...boustrophedonData, available: true } as Book
                     break
-                // Добавьте остальные кейсы для других книг
+                case "Я бывший человек меня к чему…":
+                    book.value = { ...byvshiyChelovekData, available: true } as Book;
+                    break;
                 default:
                     // Для остальных книг пока нет данных
                     book.value = {

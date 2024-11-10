@@ -55,7 +55,14 @@ export default defineComponent({
                 dedication: "Посвящается...",
                 sections: [],
                 available: true
+            },
+            {
+                title: "Я бывший человек меня к чему…",
+                dedication: "",
+                sections: [],
+                available: true
             }
+
         ]
 
         return {
