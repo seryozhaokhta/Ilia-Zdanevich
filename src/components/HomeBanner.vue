@@ -15,11 +15,11 @@ import p5 from 'p5'
 const p5Container = ref<HTMLDivElement | null>(null)
 let sketch: p5
 
-// Массив букв для двух слов
-const filledLetters = ["ИЛЬЯ", "ЗДАНАНЕВИЧ"].map(line => line.split(""))
+// Массивы букв для двух слов
+const filledLetters = ["ИЛЬЯ", "ЗДАНЕВИЧ"].map(line => line.split(""))
 const outlinedLetters = ["ИЛЬЯЗД"].map(line => line.split(""))
 
-// Интерфейсы для хранения данных о каждой букве
+// Интерфейс для хранения данных о каждой букве
 interface Letter {
     char: string
     currentX: number
@@ -35,9 +35,8 @@ let outlinedLettersData: Letter[] = []
 // Параметры анимации
 const lerpSpeed = 0.025
 
-// Позиции курсора мыши
-let mouseXPos = window.innerWidth / 2
-let mouseYPos = window.innerHeight / 2
+// Позиция указателя по оси X (мышь или касание)
+let pointerXPos = window.innerWidth / 2
 
 // Состояние анимации
 enum AnimationState {
@@ -47,83 +46,66 @@ enum AnimationState {
 
 let state: AnimationState = AnimationState.INITIAL
 
-// Обработчик движения мыши
-const handleMouseMove = (event: MouseEvent) => {
-    mouseXPos = event.clientX
-    mouseYPos = event.clientY
+// Обработчик обновления позиции указателя по оси X
+const handlePointerMove = (x: number) => {
+    pointerXPos = x
 }
 
+// Ссылки на функции-обработчики для удаления слушателей событий
+let mouseMoveHandler: (event: MouseEvent) => void
+let touchMoveHandler: (event: TouchEvent) => void
+
 // Константы для отступов и промежутков
-const marginX = -50
-const marginY = -150
-const lineSpacing = 200 // Увеличен отступ между строками
-const spaceBetweenLetters = 10 // Минимальное расстояние между буквами
+let marginX = -50
+let marginY = -150
+let lineSpacing = 200 // Увеличенный отступ между строками
+let spaceBetweenLetters = 10 // Минимальное расстояние между буквами
+
+// Переменные для адаптивных параметров
+let textSize = 240 // Размер текста по умолчанию
+let outlinedStrokeWeight = 2 // Толщина обводки по умолчанию
+let rotationAngle = 0 // Угол поворота по умолчанию (0 радиан)
 
 onMounted(() => {
-    // Добавляем слушатель события движения мыши
-    window.addEventListener('mousemove', handleMouseMove)
+    // Определяем функции-обработчики
+    mouseMoveHandler = (event: MouseEvent) => {
+        handlePointerMove(event.clientX)
+    }
+
+    touchMoveHandler = (event: TouchEvent) => {
+        if (event.touches.length > 0) {
+            handlePointerMove(event.touches[0].clientX)
+        }
+    }
+
+    // Добавляем слушатели событий для мыши и касаний
+    window.addEventListener('mousemove', mouseMoveHandler)
+    window.addEventListener('touchmove', touchMoveHandler)
+
+    // Функция для конвертации HEX в RGB
+    const hexToRgb = (hex: string): [number, number, number] => {
+        hex = hex.replace('#', '').trim()
+        if (hex.length === 3) {
+            hex = hex.split('').map(c => c + c).join('')
+        }
+        const bigint = parseInt(hex, 16)
+        const r = (bigint >> 16) & 255
+        const g = (bigint >> 8) & 255
+        const b = bigint & 255
+        return [r, g, b]
+    }
 
     // Определяем p5.js скетч
     const s = (p: p5) => {
         p.setup = () => {
             p.createCanvas(p.windowWidth, p.windowHeight)
             p.textFont("Helvetica")
-            p.textSize(240) // Увеличен размер шрифта
             p.textAlign(p.LEFT, p.TOP) // Выравнивание по левому верхнему углу
 
-            let currentY = marginY
+            // Устанавливаем размер текста и отступы в зависимости от ширины окна
+            setResponsiveParameters(p)
 
-            // Инициализация данных для filledLetters
-            filledLettersData = []
-            filledLetters.forEach(line => { // каждая строка - массив символов
-                let currentX = marginX
-
-                line.forEach(char => {
-                    const letterWidth = p.textWidth(char)
-                    const letterHeight = p.textAscent() + p.textDescent()
-                    const pos = {
-                        x: currentX + letterWidth / 2,
-                        y: currentY + letterHeight / 2,
-                    }
-                    filledLettersData.push({
-                        char,
-                        currentX: pos.x,
-                        currentY: pos.y,
-                        targetX: pos.x,
-                        targetY: pos.y,
-                    })
-                    currentX += letterWidth + spaceBetweenLetters
-                })
-
-                currentY += lineSpacing // переход на следующую строку
-            })
-
-            // Инициализация данных для outlinedLetters
-            outlinedLettersData = []
-            currentY += 50 // Добавим небольшой отступ между словами
-
-            outlinedLetters.forEach(line => {
-                let currentX = marginX
-
-                line.forEach(char => {
-                    const letterWidth = p.textWidth(char)
-                    const letterHeight = p.textAscent() + p.textDescent()
-                    const pos = {
-                        x: currentX + letterWidth / 2,
-                        y: currentY + letterHeight / 2,
-                    }
-                    outlinedLettersData.push({
-                        char,
-                        currentX: pos.x,
-                        currentY: pos.y,
-                        targetX: pos.x,
-                        targetY: pos.y,
-                    })
-                    currentX += letterWidth + spaceBetweenLetters
-                })
-
-                currentY += lineSpacing
-            })
+            initializeLetters(p)
         }
 
         p.draw = () => {
@@ -132,19 +114,6 @@ onMounted(() => {
             const bgHex = computedStyle.getPropertyValue('--background-color').trim() || '#FFFFFF'
             const textHex = computedStyle.getPropertyValue('--text-color').trim() || '#000000'
 
-            // Функция для конвертации HEX в RGB
-            const hexToRgb = (hex: string): [number, number, number] => {
-                hex = hex.replace('#', '').trim()
-                if (hex.length === 3) {
-                    hex = hex.split('').map(c => c + c).join('')
-                }
-                const bigint = parseInt(hex, 16)
-                const r = (bigint >> 16) & 255
-                const g = (bigint >> 8) & 255
-                const b = bigint & 255
-                return [r, g, b]
-            }
-
             // Преобразуем HEX-цвета в RGB
             const bgColor = hexToRgb(bgHex)
             const textColor = hexToRgb(textHex)
@@ -152,8 +121,8 @@ onMounted(() => {
             // Устанавливаем фон канваса
             p.background(...bgColor)
 
-            // Определяем текущее состояние на основе позиции курсора
-            const newState = mouseXPos >= p.width / 2 ? AnimationState.CHAOS : AnimationState.INITIAL
+            // Определяем текущее состояние на основе позиции указателя
+            const newState = pointerXPos >= p.width / 2 ? AnimationState.CHAOS : AnimationState.INITIAL
             if (newState !== state) {
                 state = newState
                 if (state === AnimationState.CHAOS) {
@@ -165,36 +134,77 @@ onMounted(() => {
                 }
             }
 
-            // Обрабатываем каждую букву в filledLetters
-            filledLettersData.forEach(letter => {
-                // Плавное движение к целевой позиции
-                letter.currentX = p.lerp(letter.currentX, letter.targetX, lerpSpeed)
-                letter.currentY = p.lerp(letter.currentY, letter.targetY, lerpSpeed)
+            // Применяем поворот
+            p.push()
+            // Переносим начало координат в центр экрана
+            p.translate(p.width / 2, p.height / 2)
+            // Поворачиваем на заданный угол
+            p.rotate(rotationAngle)
+            // Возвращаем начало координат
+            p.translate(-p.width / 2, -p.height / 2)
 
-                // Устанавливаем цвет текста без прозрачности
-                p.fill(...textColor)
-                p.noStroke()
-                p.text(letter.char, letter.currentX, letter.currentY)
-            })
+            // Отрисовываем буквы
+            drawLetters(p, filledLettersData, 'filled', textColor)
+            drawLetters(p, outlinedLettersData, 'outlined', textColor)
 
-            // Обрабатываем каждую букву в outlinedLetters
-            outlinedLettersData.forEach(letter => {
-                // Плавное движение к целевой позиции
-                letter.currentX = p.lerp(letter.currentX, letter.targetX, lerpSpeed)
-                letter.currentY = p.lerp(letter.currentY, letter.targetY, lerpSpeed)
-
-                // Устанавливаем контур текста
-                p.noFill()
-                p.stroke(...textColor)
-                p.strokeWeight(2)
-                p.text(letter.char, letter.currentX, letter.currentY)
-            })
+            p.pop()
         }
 
         p.windowResized = () => {
             p.resizeCanvas(p.windowWidth, p.windowHeight)
-            // Пересчитываем позиции букв при изменении размера окна
+            // Пересчитываем параметры и позиции букв при изменении размера окна
+            setResponsiveParameters(p)
             initializeLetters(p)
+        }
+
+        /**
+         * Функция установки параметров в зависимости от ширины окна
+         */
+        const setResponsiveParameters = (p: p5) => {
+            if (p.windowWidth < 768) {
+                // Мобильное устройство
+                textSize = 90 // Размер шрифта для мобильных устройств
+                marginX = -170
+                marginY = 200
+                lineSpacing = 80
+                spaceBetweenLetters = 5
+                outlinedStrokeWeight = 1 // Толщина обводки для мобильных устройств
+                rotationAngle = p.radians(-90) // Угол поворота для мобильных устройств (-90 градусов)
+            } else {
+                // Десктоп
+                textSize = 240 // Размер шрифта для десктопов
+                marginX = -50
+                marginY = -150
+                lineSpacing = 200
+                spaceBetweenLetters = 10
+                outlinedStrokeWeight = 2 // Толщина обводки для десктопов
+                rotationAngle = 0 // Без поворота на десктопах
+            }
+            p.textSize(textSize)
+        }
+
+        /**
+         * Функция отрисовки букв
+         */
+        const drawLetters = (p: p5, lettersDataArray: Letter[], drawStyle: 'filled' | 'outlined', textColor: [number, number, number]) => {
+            lettersDataArray.forEach(letter => {
+                // Плавное движение к целевой позиции
+                letter.currentX = p.lerp(letter.currentX, letter.targetX, lerpSpeed)
+                letter.currentY = p.lerp(letter.currentY, letter.targetY, lerpSpeed)
+
+                if (drawStyle === 'filled') {
+                    // Устанавливаем цвет текста без прозрачности
+                    p.fill(...textColor)
+                    p.noStroke()
+                } else if (drawStyle === 'outlined') {
+                    // Устанавливаем контур текста
+                    p.noFill()
+                    p.stroke(...textColor)
+                    p.strokeWeight(outlinedStrokeWeight)
+                }
+
+                p.text(letter.char, letter.currentX, letter.currentY)
+            })
         }
 
         /**
@@ -237,59 +247,9 @@ onMounted(() => {
          * Функция инициализации позиций букв (используется при ресайзе)
          */
         const initializeLetters = (p: p5) => {
-            // Очистка данных
-            filledLettersData = []
-            outlinedLettersData = []
-
-            let currentY = marginY
-
-            // Инициализация для filledLetters
-            filledLetters.forEach(line => {
-                let currentX = marginX
-
-                line.forEach(char => {
-                    const letterWidth = p.textWidth(char)
-                    const letterHeight = p.textAscent() + p.textDescent()
-                    const pos = {
-                        x: currentX + letterWidth / 2,
-                        y: currentY + letterHeight / 2,
-                    }
-                    filledLettersData.push({
-                        char,
-                        currentX: pos.x,
-                        currentY: pos.y,
-                        targetX: pos.x,
-                        targetY: pos.y,
-                    })
-                    currentX += letterWidth + spaceBetweenLetters
-                })
-
-                currentY += lineSpacing
-            })
-
-            // Инициализация для outlinedLetters
-            outlinedLetters.forEach(line => {
-                let currentX = marginX
-
-                line.forEach(char => {
-                    const letterWidth = p.textWidth(char)
-                    const letterHeight = p.textAscent() + p.textDescent()
-                    const pos = {
-                        x: currentX + letterWidth / 2,
-                        y: currentY + letterHeight / 2,
-                    }
-                    outlinedLettersData.push({
-                        char,
-                        currentX: pos.x,
-                        currentY: pos.y,
-                        targetX: pos.x,
-                        targetY: pos.y,
-                    })
-                    currentX += letterWidth + spaceBetweenLetters
-                })
-
-                currentY += lineSpacing
-            })
+            // Создание данных для букв
+            filledLettersData = createLettersData(p, filledLetters)
+            outlinedLettersData = createLettersData(p, outlinedLetters)
 
             // Устанавливаем начальные или хаотичные позиции в зависимости от состояния
             if (state === AnimationState.CHAOS) {
@@ -300,15 +260,51 @@ onMounted(() => {
                 setChaosPositions(p, outlinedLettersData)
             }
         }
+
+        /**
+         * Функция создания данных букв
+         */
+        const createLettersData = (p: p5, lettersArray: string[][]): Letter[] => {
+            const lettersData: Letter[] = []
+            let currentY = marginY
+
+            lettersArray.forEach(line => {
+                let currentX = marginX
+
+                line.forEach(char => {
+                    const letterWidth = p.textWidth(char)
+                    const letterHeight = p.textAscent() + p.textDescent()
+                    const pos = {
+                        x: currentX + letterWidth / 2,
+                        y: currentY + letterHeight / 2,
+                    }
+                    lettersData.push({
+                        char,
+                        currentX: pos.x,
+                        currentY: pos.y,
+                        targetX: pos.x,
+                        targetY: pos.y,
+                    })
+                    currentX += letterWidth + spaceBetweenLetters
+                })
+
+                currentY += lineSpacing
+            })
+
+            return lettersData
+        }
     }
 
     // Создаём экземпляр p5.js скетча
-    sketch = new p5(s, p5Container.value as HTMLElement)
+    if (p5Container.value) {
+        sketch = new p5(s, p5Container.value)
+    }
 })
 
 onBeforeUnmount(() => {
-    // Удаляем слушатель события движения мыши и уничтожаем скетч
-    window.removeEventListener('mousemove', handleMouseMove)
+    // Удаляем слушатели событий и уничтожаем скетч
+    window.removeEventListener('mousemove', mouseMoveHandler)
+    window.removeEventListener('touchmove', touchMoveHandler)
     if (sketch) sketch.remove()
 })
 </script>
